@@ -471,6 +471,12 @@ func (p *Pool[T]) activeLen() int {
 	return len(p.freeResources) + len(p.useResources) + len(p.verifyResources)
 }
 
+// Acquire - gets one free resource from pool
+// How to use:
+// res, err := p.Acquire(ctx)
+// if err != nil { panic(err) }
+// defer res.Release()
+// resource := res.Value()
 func (p *Pool[T]) Acquire(ctx context.Context) (res *Resource[T], err error) {
 	defer p.config.callOnAcquire(res, err)
 	if ctx.Err() != nil {
@@ -570,8 +576,8 @@ func (p *Pool[T]) MarkAllToClose() {
 	p.mx.Unlock()
 }
 
-// Stat - statistics for pool
-type Stat struct {
+// PoolStat - statistics for pool
+type PoolStat struct {
 	// Total resources includes resourses waiting for destroy
 	Total int
 	// Total resources Idle(free), inUse and waiting for Validate
@@ -588,8 +594,8 @@ type Stat struct {
 }
 
 // GetStat - gets current statistic
-func (p *Pool[T]) GetStat() (stat *Stat) {
-	stat = &Stat{}
+func (p *Pool[T]) GetStat() (stat *PoolStat) {
+	stat = &PoolStat{}
 	p.mx.Lock()
 	defer p.mx.Unlock()
 

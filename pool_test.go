@@ -65,7 +65,7 @@ func TestInitPoolErrors(t *testing.T) {
 	}
 }
 
-func statCheck(a Stat, b Stat) bool {
+func statCheck(a PoolStat, b PoolStat) bool {
 	return a.Total == b.Total &&
 		a.Active == b.Active &&
 		a.Free == b.Free &&
@@ -73,7 +73,7 @@ func statCheck(a Stat, b Stat) bool {
 		a.Verify == b.Verify
 }
 
-func toStringStat(s Stat) string {
+func toStringStat(s PoolStat) string {
 	b, _ := json.MarshalIndent(s, "", " ")
 	return string(b)
 }
@@ -116,7 +116,7 @@ func TestHappyPathPoolAcquireAndReleaseAndVerify(t *testing.T) {
 	}
 
 	stat := pool.GetStat()
-	checkStat := Stat{Total: 5, Active: 5, Free: 0, InUse: 5, Verify: 0}
+	checkStat := PoolStat{Total: 5, Active: 5, Free: 0, InUse: 5, Verify: 0}
 
 	if !statCheck(*stat, checkStat) {
 		t.Fatalf("should stat after Acquire be %v BUT is %v", toStringStat(checkStat), toStringStat(*stat))
@@ -127,7 +127,7 @@ func TestHappyPathPoolAcquireAndReleaseAndVerify(t *testing.T) {
 	}
 
 	stat = pool.GetStat()
-	checkStat = Stat{Total: 5, Active: 5, Free: 5, InUse: 0, Verify: 0}
+	checkStat = PoolStat{Total: 5, Active: 5, Free: 5, InUse: 0, Verify: 0}
 
 	if !statCheck(*stat, checkStat) {
 		t.Fatalf("should stat after release be %v BUT is %v", toStringStat(checkStat), toStringStat(*stat))
@@ -143,7 +143,7 @@ func TestHappyPathPoolAcquireAndReleaseAndVerify(t *testing.T) {
 	}
 
 	stat = pool.GetStat()
-	checkStat = Stat{Total: 5, Active: 5, Free: 0, InUse: 5, Verify: 0}
+	checkStat = PoolStat{Total: 5, Active: 5, Free: 0, InUse: 5, Verify: 0}
 
 	if !statCheck(*stat, checkStat) {
 		t.Fatalf("should stat after second Acquire be %v BUT is %v", toStringStat(checkStat), toStringStat(*stat))
@@ -157,7 +157,7 @@ func TestHappyPathPoolAcquireAndReleaseAndVerify(t *testing.T) {
 	time.Sleep(1000 * time.Millisecond)
 
 	stat = pool.GetStat()
-	checkStat = Stat{Total: 5, Active: 5, Free: 5, InUse: 0, Verify: 0}
+	checkStat = PoolStat{Total: 5, Active: 5, Free: 5, InUse: 0, Verify: 0}
 
 	if !statCheck(*stat, checkStat) {
 		t.Fatalf("should stat after second release and verify be %v BUT is %v (verify OK|FAIL %v | %v)",
@@ -171,7 +171,7 @@ func TestHappyPathPoolAcquireAndReleaseAndVerify(t *testing.T) {
 	time.Sleep(100 * time.Millisecond)
 
 	stat = pool.GetStat()
-	checkStat = Stat{Total: 5, Active: 5, Free: 5, InUse: 0, Verify: 0}
+	checkStat = PoolStat{Total: 5, Active: 5, Free: 5, InUse: 0, Verify: 0}
 
 	if !statCheck(*stat, checkStat) {
 		t.Fatalf("should stat after second verify be %v BUT is %v (verify OK|FAIL %v | %v)",
@@ -183,7 +183,7 @@ func TestHappyPathPoolAcquireAndReleaseAndVerify(t *testing.T) {
 	time.Sleep(100 * time.Millisecond)
 
 	stat = pool.GetStat()
-	checkStat = Stat{Total: 0, Active: 0, Free: 0, InUse: 0, Verify: 0}
+	checkStat = PoolStat{Total: 0, Active: 0, Free: 0, InUse: 0, Verify: 0}
 
 	if !statCheck(*stat, checkStat) {
 		t.Fatalf("should stat after MarkAllToClose be %v BUT is %v", toStringStat(checkStat), toStringStat(*stat))
@@ -222,7 +222,7 @@ func TestHappyPathPoolAcquireAndReleaseAndLimits(t *testing.T) {
 	time.Sleep(100 * time.Millisecond)
 
 	stat := pool.GetStat()
-	checkStat := Stat{Total: 2, Active: 2, Free: 2, InUse: 0, Verify: 0}
+	checkStat := PoolStat{Total: 2, Active: 2, Free: 2, InUse: 0, Verify: 0}
 
 	if !statCheck(*stat, checkStat) {
 		t.Fatalf("should stat after second Acquire be %v BUT is %v", toStringStat(checkStat), toStringStat(*stat))
@@ -239,7 +239,7 @@ func TestHappyPathPoolAcquireAndReleaseAndLimits(t *testing.T) {
 	}
 
 	stat = pool.GetStat()
-	checkStat = Stat{Total: 4, Active: 4, Free: 0, InUse: 4, Verify: 0}
+	checkStat = PoolStat{Total: 4, Active: 4, Free: 0, InUse: 4, Verify: 0}
 
 	if !statCheck(*stat, checkStat) {
 		t.Fatalf("should stat after Acquire be %v BUT is %v", toStringStat(checkStat), toStringStat(*stat))
@@ -259,7 +259,7 @@ func TestHappyPathPoolAcquireAndReleaseAndLimits(t *testing.T) {
 	}
 
 	stat = pool.GetStat()
-	checkStat = Stat{Total: 4, Active: 4, Free: 4, InUse: 0, Verify: 0}
+	checkStat = PoolStat{Total: 4, Active: 4, Free: 4, InUse: 0, Verify: 0}
 
 	if !statCheck(*stat, checkStat) {
 		t.Fatalf("should stat after Release be %v BUT is %v", toStringStat(checkStat), toStringStat(*stat))
@@ -300,7 +300,7 @@ func TestBadHealth(t *testing.T) {
 	time.Sleep(100 * time.Millisecond)
 
 	stat := pool.GetStat()
-	checkStat := Stat{Total: 2, Active: 2, Free: 2, InUse: 0, Verify: 0}
+	checkStat := PoolStat{Total: 2, Active: 2, Free: 2, InUse: 0, Verify: 0}
 
 	if !statCheck(*stat, checkStat) {
 		t.Fatalf("should stat after create pool with min be %v BUT is %v", toStringStat(checkStat), toStringStat(*stat))
@@ -310,7 +310,7 @@ func TestBadHealth(t *testing.T) {
 
 	stat = pool.GetStat()
 	// should clase all connections by verify
-	checkStat = Stat{Total: 0, Active: 0, Free: 0, InUse: 0, Verify: 0}
+	checkStat = PoolStat{Total: 0, Active: 0, Free: 0, InUse: 0, Verify: 0}
 
 	if !statCheck(*stat, checkStat) {
 		t.Fatalf("should stat after first check be %v BUT is %v", toStringStat(checkStat), toStringStat(*stat))
@@ -324,7 +324,7 @@ func TestBadHealth(t *testing.T) {
 
 	stat = pool.GetStat()
 	// should reopen connect
-	checkStat = Stat{Total: 2, Active: 2, Free: 2, InUse: 0, Verify: 0}
+	checkStat = PoolStat{Total: 2, Active: 2, Free: 2, InUse: 0, Verify: 0}
 
 	if !statCheck(*stat, checkStat) {
 		t.Fatalf("should stat after second check be %v BUT is %v", toStringStat(checkStat), toStringStat(*stat))
