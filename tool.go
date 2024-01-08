@@ -1,6 +1,8 @@
 package poh
 
 import (
+	"encoding/json"
+
 	"github.com/cespare/xxhash"
 	"github.com/myfantasy/ints"
 )
@@ -31,4 +33,18 @@ func StringToIntHashXX(s string) int {
 func Int128ToIntHashXX(i ints.UInt128) int {
 	bts := i.AsBytes()
 	return BytesToIntHashXX(bts[:])
+}
+
+func ToP[T any](val T) *T {
+	return &val
+}
+
+func ToJson(value any) string {
+	v, err := json.MarshalIndent(value, "", "  ")
+
+	if err != nil {
+		panic(err)
+	}
+
+	return string(v)
 }

@@ -18,10 +18,11 @@ type ShardRangeConfigs[T constraints.Ordered] []ShardRangeConfig[T]
 
 // ShardEpochConfig config of one epoch of sharding
 type ShardEpochConfig[T constraints.Ordered] struct {
-	EpochName string               `json:"epoch_name" db:"epoch_name"`
-	FromTime  *time.Time           `json:"from_time" db:"from_time"`
-	ToTime    *time.Time           `json:"to_time" db:"to_time"`
-	Ranges    ShardRangeConfigs[T] `json:"ranges" db:"ranges"`
+	EpochName    string               `json:"epoch_name" db:"epoch_name"`
+	FromTime     *time.Time           `json:"from_time" db:"from_time"`
+	ToTime       *time.Time           `json:"to_time" db:"to_time"`
+	Ranges       ShardRangeConfigs[T] `json:"ranges" db:"ranges"`
+	SpecialCases map[T]string         `json:"special_cases" db:"special_cases"`
 }
 
 type ShardEpochConfigs[T constraints.Ordered] []ShardEpochConfig[T]
@@ -36,6 +37,7 @@ type FoundedShard[T constraints.Ordered] struct {
 	EpochName        string               `json:"epoch_name" db:"epoch_name"`
 	Version          string               `json:"version" db:"version"`
 	ShardRangeConfig *ShardRangeConfig[T] `json:"sc_cfg" db:"version"`
+	IsSpecial        bool                 `json:"is_special" db:"is_special"`
 }
 
 func LessOrdered[T constraints.Ordered](a, b *T) bool {
@@ -205,14 +207,52 @@ func (sec ShardEpochConfigs[T]) FindShard(id T, shardingTime time.Time) *Founded
 		return nil
 	}
 
-	return &FoundedShard[T]{
-		EpochName:        sec[ix].EpochName,
-		ShardRangeConfig: sec[ix].Ranges.FindShard(id),
+	bName, ok := sec[ix].SpecialCases[id]
+	if ok {
+		return &FoundedShard[T]{
+			EpochName: sec[ix].EpochName,
+			IsSpecial: true,
+			ShardRangeConfig: &ShardRangeConfig[T]{
+				From:           &id,
+				To:             &id,
+				Name:           "",
+				BucketQuantity: 1,
+				BucketNames:    []string{bName},
+			},
+		}
 	}
+
+	src := sec[ix].Ranges.FindShard(id)
+	if src != nil {
+		return &FoundedShard[T]{
+			EpochName:        sec[ix].EpochName,
+			ShardRangeConfig: src,
+		}
+	}
+
+	return nil
 }
 
 func (sec ShardEpochConfigs[T]) FindShards(id T) (res []*FoundedShard[T]) {
 	for i := len(sec) - 1; i >= 0; i-- {
+		bName, ok := sec[i].SpecialCases[id]
+		if ok {
+			res = append(res,
+				&FoundedShard[T]{
+					EpochName: sec[i].EpochName,
+					IsSpecial: true,
+					ShardRangeConfig: &ShardRangeConfig[T]{
+						From:           &id,
+						To:             &id,
+						Name:           "",
+						BucketQuantity: 1,
+						BucketNames:    []string{bName},
+					},
+				},
+			)
+			continue
+		}
+
 		s := sec[i].Ranges.FindShard(id)
 		if s != nil {
 			res = append(res,
@@ -248,4 +288,58 @@ func (sc ShardingConfig[T]) FindShards(id T) (res []*FoundedShard[T]) {
 
 func (sc ShardingConfig[T]) Sort() {
 	sc.Epochs.Sort()
+}
+
+func (fs *FoundedShard[T]) Bucket(id T, conv func(id T) (hash int)) (bucket string, ok bool) {
+	if fs == nil {
+		return "", false
+	}
+
+	if fs.ShardRangeConfig == nil {
+		return "", false
+	}
+
+	if fs.ShardRangeConfig.BucketQuantity <= 0 {
+		return "", false
+	}
+
+	rem := conv(id) % fs.ShardRangeConfig.BucketQuantity
+
+	return fs.ShardRangeConfig.BucketNames[rem], true
+}
+
+func BucketInt(id int, fs *FoundedShard[int]) (bucket string, ok bool) {
+	if fs == nil {
+		return "", false
+	}
+
+	if fs.ShardRangeConfig == nil {
+		return "", false
+	}
+
+	if fs.ShardRangeConfig.BucketQuantity <= 0 {
+		return "", false
+	}
+
+	rem := id % fs.ShardRangeConfig.BucketQuantity
+
+	return fs.ShardRangeConfig.BucketNames[rem], true
+}
+
+func BucketString(id string, fs *FoundedShard[string]) (bucket string, ok bool) {
+	if fs == nil {
+		return "", false
+	}
+
+	if fs.ShardRangeConfig == nil {
+		return "", false
+	}
+
+	if fs.ShardRangeConfig.BucketQuantity <= 0 {
+		return "", false
+	}
+
+	rem := StringToIntHashXX(id) % fs.ShardRangeConfig.BucketQuantity
+
+	return fs.ShardRangeConfig.BucketNames[rem], true
 }
