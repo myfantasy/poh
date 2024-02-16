@@ -2,12 +2,12 @@ module github.com/myfantasy/poh
 
 go 1.21.4
 
-require github.com/myfantasy/ints v0.0.9
+require github.com/myfantasy/ints v0.0.10
 
 require github.com/cespare/xxhash v1.1.0
 
 require (
-	github.com/myfantasy/mfctx v0.0.2
+	github.com/myfantasy/mfctx v0.0.3
 	golang.org/x/exp v0.0.0-20240213143201-ec583247a57a
 )
 
