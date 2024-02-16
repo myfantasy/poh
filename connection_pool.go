@@ -2,6 +2,7 @@ package poh
 
 import (
 	"context"
+	"errors"
 	"sync"
 	"time"
 
@@ -10,7 +11,7 @@ import (
 
 const DefaultConnectionPoolCheckTimeout = time.Second
 
-type ConnectionGeneratorFunc[T any] func(ctxBase context.Context) *Connection[T]
+type ConnectionGeneratorFunc[T any] func(ctxBase context.Context) (*Connection[T], error)
 
 type CountFunc func() int
 
@@ -28,6 +29,8 @@ type ConnectionPool[T any] struct {
 	ctxBase context.Context
 
 	CheckTimeout time.Duration
+
+	chFree chan struct{}
 }
 
 func MakeConnectionPool[T any](ctxBase context.Context,
@@ -47,6 +50,8 @@ func MakeConnectionPool[T any](ctxBase context.Context,
 		ctxBase: ctxBase,
 
 		CheckTimeout: DefaultConnectionPoolCheckTimeout,
+
+		chFree: make(chan struct{}),
 	}
 }
 
@@ -70,6 +75,29 @@ func (cp *ConnectionPool[T]) Get(ctxIn context.Context) (conn *Connection[T], fr
 	}, e
 }
 
+func (cp *ConnectionPool[T]) LockChan() chan struct{} {
+	cp.mx.Lock()
+	defer cp.mx.Unlock()
+
+	return cp.chFree
+}
+
+func (cp *ConnectionPool[T]) GetWait(ctxIn context.Context) (conn *Connection[T], free FreeConnectionFunc, err error) {
+	conn, free, err = cp.Get(ctxIn)
+
+	for err != nil && errors.Is(err, ErrConnectionCreationErrorCP) {
+		select {
+		case <-ctxIn.Done():
+			return conn, free, err
+		case <-cp.LockChan():
+			// retry
+		}
+		conn, free, err = cp.Get(ctxIn)
+	}
+
+	return conn, free, err
+}
+
 func (cp *ConnectionPool[T]) GetInternal(ctxIn context.Context) (conn *Connection[T], free FreeConnectionFunc, err error) {
 	ctx := mfctx.FromCtx(ctxIn).Start("poh.ConnectionPool.GetInternal")
 	defer func() { ctx.Complete(err) }()
@@ -85,6 +113,9 @@ func (cp *ConnectionPool[T]) GetInternal(ctxIn context.Context) (conn *Connectio
 		delete(cp.free, k)
 		return cp.conns[k], func() {
 			freeF()
+
+			cp.ResetFreeCnahInternal()
+
 			cp.free[k] = struct{}{}
 		}, nil
 	}
@@ -92,24 +123,38 @@ func (cp *ConnectionPool[T]) GetInternal(ctxIn context.Context) (conn *Connectio
 	return cp.GenerateConnectionInternal(ctxIn)
 }
 
+func (cp *ConnectionPool[T]) ResetFreeCnahInternal() {
+	close(cp.chFree)
+	cp.chFree = make(chan struct{})
+}
+
 func (cp *ConnectionPool[T]) GenerateConnectionInternal(ctxIn context.Context) (conn *Connection[T], free FreeConnectionFunc, err error) {
 	if cp.MaxCount != nil && cp.MaxCount() > 0 && cp.MaxCount() <= len(cp.conns) {
 		return nil, freeConnectionFuncEmpty, ErrOverflowCP
 	}
 
-	connN := cp.ConnectionGenerator(cp.ctxBase)
+	connN, err := cp.ConnectionGenerator(cp.ctxBase)
+	if err != nil {
+		return nil, freeConnectionFuncEmpty, errors.Join(ErrConnectionCreationErrorCP, err)
+	}
 	connN.CloseJobRun(cp.ctxBase, cp.CheckTimeout)
 
 	cp.conns[connN.ID] = connN
 	l, freeF := connN.TryLock(ctxIn)
 	if !l {
 		freeF()
+
+		cp.ResetFreeCnahInternal()
+
 		cp.free[connN.ID] = struct{}{}
 
 		return nil, freeConnectionFuncEmpty, ErrInternalLockCP
 	}
 	return connN, func() {
 		freeF()
+
+		cp.ResetFreeCnahInternal()
+
 		cp.free[connN.ID] = struct{}{}
 	}, nil
 }
