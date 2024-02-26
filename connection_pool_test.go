@@ -9,6 +9,7 @@ import (
 func TestConnectionPoolMinCount(t *testing.T) {
 	cp := MakeConnectionPool(
 		context.Background(),
+		func(cause error) {},
 		func(ctxBase context.Context) (*Connection[struct{}], error) {
 			return MakeConnection(struct{}{},
 				func(ctx context.Context, conn struct{}) error { return nil },
@@ -30,6 +31,7 @@ func TestConnectionPoolMinCount(t *testing.T) {
 func TestConnectionPoolClear(t *testing.T) {
 	cp := MakeConnectionPool(
 		context.Background(),
+		func(cause error) {},
 		func(ctxBase context.Context) (*Connection[struct{}], error) {
 			return MakeConnection(struct{}{},
 				func(ctx context.Context, conn struct{}) error { return nil },

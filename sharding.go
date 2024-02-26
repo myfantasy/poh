@@ -1,6 +1,7 @@
 package poh
 
 import (
+	"encoding/json"
 	"sort"
 	"time"
 
@@ -19,6 +20,7 @@ type ShardRangeConfigs[T constraints.Ordered] []ShardRangeConfig[T]
 // ShardEpochConfig config of one epoch of sharding
 type ShardEpochConfig[T constraints.Ordered] struct {
 	EpochName    string               `json:"epoch_name" db:"epoch_name"`
+	EpochInfo    json.RawMessage      `json:"epoch_info" db:"epoch_info"`
 	FromTime     *time.Time           `json:"from_time" db:"from_time"`
 	ToTime       *time.Time           `json:"to_time" db:"to_time"`
 	Ranges       ShardRangeConfigs[T] `json:"ranges" db:"ranges"`
@@ -35,6 +37,7 @@ type ShardingConfig[T constraints.Ordered] struct {
 // FoundedShard is shard info
 type FoundedShard[T constraints.Ordered] struct {
 	EpochName        string               `json:"epoch_name" db:"epoch_name"`
+	EpochInfo        json.RawMessage      `json:"epoch_info" db:"epoch_info"`
 	Version          string               `json:"version" db:"version"`
 	ShardRangeConfig *ShardRangeConfig[T] `json:"sc_cfg" db:"version"`
 	IsSpecial        bool                 `json:"is_special" db:"is_special"`
@@ -211,6 +214,7 @@ func (sec ShardEpochConfigs[T]) FindShard(id T, shardingTime time.Time) *Founded
 	if ok {
 		return &FoundedShard[T]{
 			EpochName: sec[ix].EpochName,
+			EpochInfo: sec[ix].EpochInfo,
 			IsSpecial: true,
 			ShardRangeConfig: &ShardRangeConfig[T]{
 				From:           &id,
@@ -226,6 +230,7 @@ func (sec ShardEpochConfigs[T]) FindShard(id T, shardingTime time.Time) *Founded
 	if src != nil {
 		return &FoundedShard[T]{
 			EpochName:        sec[ix].EpochName,
+			EpochInfo:        sec[ix].EpochInfo,
 			ShardRangeConfig: src,
 		}
 	}
@@ -240,6 +245,7 @@ func (sec ShardEpochConfigs[T]) FindShards(id T) (res []*FoundedShard[T]) {
 			res = append(res,
 				&FoundedShard[T]{
 					EpochName: sec[i].EpochName,
+					EpochInfo: sec[i].EpochInfo,
 					IsSpecial: true,
 					ShardRangeConfig: &ShardRangeConfig[T]{
 						From:           &id,
@@ -258,6 +264,7 @@ func (sec ShardEpochConfigs[T]) FindShards(id T) (res []*FoundedShard[T]) {
 			res = append(res,
 				&FoundedShard[T]{
 					EpochName:        sec[i].EpochName,
+					EpochInfo:        sec[i].EpochInfo,
 					ShardRangeConfig: s,
 				},
 			)

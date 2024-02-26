@@ -26,7 +26,8 @@ type ConnectionPool[T any] struct {
 
 	mx sync.Mutex
 
-	ctxBase context.Context
+	ctxBase  context.Context
+	ctxClose context.CancelCauseFunc
 
 	CheckTimeout time.Duration
 
@@ -34,6 +35,7 @@ type ConnectionPool[T any] struct {
 }
 
 func MakeConnectionPool[T any](ctxBase context.Context,
+	ctxClose context.CancelCauseFunc,
 	connGenFunc ConnectionGeneratorFunc[T],
 	maxCount CountFunc,
 	minCount CountFunc,
@@ -47,7 +49,8 @@ func MakeConnectionPool[T any](ctxBase context.Context,
 		MaxCount: maxCount,
 		MinCount: minCount,
 
-		ctxBase: ctxBase,
+		ctxBase:  ctxBase,
+		ctxClose: ctxClose,
 
 		CheckTimeout: DefaultConnectionPoolCheckTimeout,
 
@@ -215,5 +218,15 @@ func (cp *ConnectionPool[T]) OpenIdleInternal() {
 	for i := len(cp.conns); i < cp.MinCount(); i++ {
 		_, free, _ := cp.GenerateConnectionInternal(cp.ctxBase)
 		go free()
+	}
+}
+
+// Close - calls ctxClose if its set (error should be set)
+func (cp *ConnectionPool[T]) Close(err error) {
+	cp.mx.Lock()
+	defer cp.mx.Unlock()
+
+	if cp.ctxClose != nil {
+		cp.ctxClose(err)
 	}
 }

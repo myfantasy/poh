@@ -1,6 +1,7 @@
 package poh
 
 import (
+	"encoding/json"
 	"sort"
 	"time"
 
@@ -19,6 +20,7 @@ type ShardRangeConfigsUuid []ShardRangeConfigUuid
 // ShardEpochConfigUuid config of one epoch of sharding
 type ShardEpochConfigUuid struct {
 	EpochName    string                `json:"epoch_name" db:"epoch_name"`
+	EpochInfo    json.RawMessage       `json:"epoch_info" db:"epoch_info"`
 	FromTime     *time.Time            `json:"from_time" db:"from_time"`
 	ToTime       *time.Time            `json:"to_time" db:"to_time"`
 	Ranges       ShardRangeConfigsUuid `json:"ranges" db:"ranges"`
@@ -35,6 +37,7 @@ type ShardingConfigUuid struct {
 // FoundedShardUuid is shard info
 type FoundedShardUuid struct {
 	EpochName        string                `json:"epoch_name" db:"epoch_name"`
+	EpochInfo        json.RawMessage       `json:"epoch_info" db:"epoch_info"`
 	Version          string                `json:"version" db:"version"`
 	ShardRangeConfig *ShardRangeConfigUuid `json:"sc_cfg" db:"version"`
 	IsSpecial        bool                  `json:"is_special" db:"is_special"`
@@ -142,6 +145,7 @@ func (sec ShardEpochConfigsUuid) FindShard(id ints.Uuid, shardingTime time.Time)
 	if ok {
 		return &FoundedShardUuid{
 			EpochName: sec[ix].EpochName,
+			EpochInfo: sec[ix].EpochInfo,
 			IsSpecial: true,
 			ShardRangeConfig: &ShardRangeConfigUuid{
 				From:           &id,
@@ -157,6 +161,7 @@ func (sec ShardEpochConfigsUuid) FindShard(id ints.Uuid, shardingTime time.Time)
 	if src != nil {
 		return &FoundedShardUuid{
 			EpochName:        sec[ix].EpochName,
+			EpochInfo:        sec[ix].EpochInfo,
 			ShardRangeConfig: src,
 		}
 	}
@@ -171,6 +176,7 @@ func (sec ShardEpochConfigsUuid) FindShards(id ints.Uuid) (res []*FoundedShardUu
 			res = append(res,
 				&FoundedShardUuid{
 					EpochName: sec[i].EpochName,
+					EpochInfo: sec[i].EpochInfo,
 					IsSpecial: true,
 					ShardRangeConfig: &ShardRangeConfigUuid{
 						From:           &id,
@@ -189,6 +195,7 @@ func (sec ShardEpochConfigsUuid) FindShards(id ints.Uuid) (res []*FoundedShardUu
 			res = append(res,
 				&FoundedShardUuid{
 					EpochName:        sec[i].EpochName,
+					EpochInfo:        sec[i].EpochInfo,
 					ShardRangeConfig: s,
 				},
 			)
